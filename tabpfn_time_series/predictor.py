@@ -101,6 +101,7 @@ class TimeSeriesPredictor:
         train_tsdf: TimeSeriesDataFrame,
         test_tsdf: TimeSeriesDataFrame,
         quantiles: list[float] = DEFAULT_QUANTILE_CONFIG,
+        full_train_df: bool = False,
     ) -> TimeSeriesDataFrame:
         """
         Generates predictions for each time series in `test_tsdf`, using `train_tsdf` for training context.
@@ -128,6 +129,7 @@ class TimeSeriesPredictor:
             train_tsdf=train_tsdf,
             test_tsdf=test_tsdf,
             quantiles=quantiles,
+            full_train_df=full_train_df,
         )
 
     def _validate_quantiles(self, quantiles: list[float]):

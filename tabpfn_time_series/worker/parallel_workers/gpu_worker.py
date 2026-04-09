@@ -43,6 +43,7 @@ class GPUParallelWorker(ParallelWorker):
         self,
         train_tsdf: TimeSeriesDataFrame,
         test_tsdf: TimeSeriesDataFrame,
+        full_train_df: bool = False,
         **kwargs,
     ):
         """Predict on multiple time series in parallel using GPUs.
@@ -50,6 +51,7 @@ class GPUParallelWorker(ParallelWorker):
         Args:
             train_tsdf: Training time series data
             test_tsdf: Test time series data
+            full_train_df: Whether to use the full training DataFrame
             **kwargs: Additional arguments passed to inference routine
 
         Returns:
@@ -58,12 +60,12 @@ class GPUParallelWorker(ParallelWorker):
         if (
             self.total_num_workers == 1
             or len(train_tsdf.item_ids) < self.total_num_workers
-            or True
         ):
             predictions = self._prediction_routine_per_gpu(
                 train_tsdf,
                 test_tsdf,
                 gpu_id=0,
+                full_train_df=full_train_df,
                 **kwargs,
             )
             return TimeSeriesDataFrame(predictions)
@@ -74,8 +76,8 @@ class GPUParallelWorker(ParallelWorker):
         # Also, using 'min' since num_workers could be larger than the number of time series
         np.random.seed(0)
         item_ids_chunks = np.array_split(
-            np.random.permutation(train_tsdf.item_ids),
-            min(self.total_num_workers, len(train_tsdf.item_ids)),
+            np.random.permutation(test_tsdf.item_ids),
+            min(self.total_num_workers, len(test_tsdf.item_ids)),
         )
 
         # Run predictions in parallel
@@ -87,6 +89,7 @@ class GPUParallelWorker(ParallelWorker):
                 train_tsdf.loc[chunk],
                 test_tsdf.loc[chunk],
                 gpu_id=i % self.num_gpus,  # Alternate between available GPUs
+                full_train_df=full_train_df,
             )
             for i, chunk in enumerate(item_ids_chunks)
         )
@@ -94,7 +97,7 @@ class GPUParallelWorker(ParallelWorker):
         predictions = pd.concat(predictions)
 
         # Sort predictions according to original item_ids order
-        predictions = predictions.loc[train_tsdf.item_ids]
+        predictions = predictions.loc[test_tsdf.item_ids]
 
         return TimeSeriesDataFrame(predictions)
 
@@ -103,6 +106,7 @@ class GPUParallelWorker(ParallelWorker):
         train_tsdf: TimeSeriesDataFrame,
         test_tsdf: TimeSeriesDataFrame,
         gpu_id: int,
+        full_train_df: bool = False,
         **kwargs,
     ):
         """Run predictions on a specific GPU.
@@ -121,12 +125,20 @@ class GPUParallelWorker(ParallelWorker):
 
         all_pred = []
         for item_id in tqdm(test_tsdf.item_ids, desc=f"GPU {gpu_id}:"):
-            predictions = self._prediction_routine(
-                item_id,
-                train_tsdf,
-                test_tsdf.loc[item_id],
-                **kwargs,
-            )
+            if full_train_df:
+                predictions = self._prediction_routine(
+                    item_id,
+                    train_tsdf,
+                    test_tsdf.loc[item_id],
+                    **kwargs,
+                )
+            else:
+                predictions = self._prediction_routine(
+                    item_id,
+                    train_tsdf.loc[item_id],
+                    test_tsdf.loc[item_id],
+                    **kwargs,
+                )
             all_pred.append(predictions)
 
         # Clear GPU cache

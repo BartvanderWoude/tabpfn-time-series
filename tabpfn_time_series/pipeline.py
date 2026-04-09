@@ -260,6 +260,7 @@ class TabPFNTSPipeline:
         context_tsdf: TimeSeriesDataFrame,
         future_tsdf: TimeSeriesDataFrame,
         quantiles: list[float] = DEFAULT_QUANTILE_CONFIG,
+        full_train_df: bool = False,
     ) -> TimeSeriesDataFrame:
         """
         Generate forecasts using TimeSeriesDataFrame objects.
@@ -276,6 +277,8 @@ class TabPFNTSPipeline:
                 The 'target' column should be NaN (will be filled with predictions).
             quantiles: List of quantiles to predict for probabilistic forecasting.
                 Default: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9].
+            full_train_df: Whether to use the full training DataFrame for each prediction.
+                Default: False. By default, the pipeline slices the context to each individual item_id for prediction.
 
         Returns:
             TimeSeriesDataFrame with predictions. Contains:
@@ -302,6 +305,7 @@ class TabPFNTSPipeline:
             train_tsdf=context_tsdf,
             test_tsdf=future_tsdf,
             quantiles=quantiles,
+            full_train_df=full_train_df,
         )
 
     def predict_df(
@@ -310,6 +314,7 @@ class TabPFNTSPipeline:
         future_df: pd.DataFrame | None = None,
         prediction_length: int | None = None,
         quantiles: list[float] = DEFAULT_QUANTILE_CONFIG,
+        full_train_df: bool = False,
     ) -> pd.DataFrame:
         """
         Generate forecasts from pandas DataFrames (recommended method for most users).
@@ -350,6 +355,9 @@ class TabPFNTSPipeline:
                 - [0.5]: Point forecast only (median)
                 - [0.1, 0.5, 0.9]: 80% prediction interval
                 - [0.025, 0.5, 0.975]: 95% prediction interval
+            
+            full_train_df: Whether to use the full training DataFrame for each prediction.
+                By default, the pipeline slices the context to each individual item.
 
         Returns:
             DataFrame with forecasts indexed by (item_id, timestamp). Contains:
@@ -412,7 +420,7 @@ class TabPFNTSPipeline:
                 future_df = _add_dummy_item_id(future_df, "item_id")
             future_tsdf = TimeSeriesDataFrame.from_data_frame(future_df)
 
-        pred = self.predict(context_tsdf, future_tsdf, quantiles=quantiles)
+        pred = self.predict(context_tsdf, future_tsdf, quantiles=quantiles, full_train_df=full_train_df)
         result = pred.to_data_frame()
 
         return result
