@@ -58,6 +58,7 @@ class GPUParallelWorker(ParallelWorker):
         if (
             self.total_num_workers == 1
             or len(train_tsdf.item_ids) < self.total_num_workers
+            or True
         ):
             predictions = self._prediction_routine_per_gpu(
                 train_tsdf,
@@ -119,10 +120,10 @@ class GPUParallelWorker(ParallelWorker):
         torch.cuda.set_device(gpu_id)
 
         all_pred = []
-        for item_id in tqdm(train_tsdf.item_ids, desc=f"GPU {gpu_id}:"):
+        for item_id in tqdm(test_tsdf.item_ids, desc=f"GPU {gpu_id}:"):
             predictions = self._prediction_routine(
                 item_id,
-                train_tsdf.loc[item_id],
+                train_tsdf,
                 test_tsdf.loc[item_id],
                 **kwargs,
             )
